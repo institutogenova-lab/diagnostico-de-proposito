@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico de Propósito</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --rose:#c9967a; --rose-light:#e8c5b3; --rose-dark:#a07058; --rose-pale:#f5ebe4;
+  --beige:#f0e8de; --beige-dark:#d9cfc4;
+  --gold:#b8965a; --gold-light:#dcc090;
+  --text-dark:#2c2420; --text-mid:#6b5448; --text-light:#9e8276;
+  --white:#fdfaf7; --shadow:rgba(160,110,88,.15);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Jost',sans-serif;background:var(--beige);color:var(--text-dark);min-height:100vh;overflow-x:hidden;}
+
+.screen{display:none;min-height:100vh;}
+.screen.active{display:flex;flex-direction:column;}
+
+/* PROGRESSO */
+.prog-wrap{position:fixed;top:0;left:0;right:0;z-index:100;height:3px;background:var(--beige-dark);}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--rose),var(--gold));transition:width .5s ease;}
+
+/* ORNAMENTOS */
+.ornament{text-align:center;padding:2rem 0 .5rem;font-family:'Cormorant Garamond',serif;color:var(--rose);font-size:1.1rem;letter-spacing:.3em;text-transform:uppercase;}
+.divider{display:flex;align-items:center;gap:1rem;margin:.5rem auto 2rem;max-width:320px;}
+.divider-line{flex:1;height:1px;background:var(--rose-light);}
+.divider-dot{width:5px;height:5px;border-radius:50%;background:var(--rose);}
+
+/* INTRO */
+#screen-intro{background:var(--white);align-items:center;justify-content:center;padding:3rem 2rem;position:relative;overflow:hidden;}
+#screen-intro::before{content:'';position:absolute;top:-80px;right:-80px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,var(--rose-pale),transparent 70%);pointer-events:none;}
+#screen-intro::after{content:'';position:absolute;bottom:-100px;left:-80px;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,var(--beige),transparent 70%);pointer-events:none;}
+.intro-content{max-width:680px;width:100%;text-align:center;position:relative;z-index:1;}
+.intro-badge{display:inline-block;padding:.4rem 1.4rem;border:1px solid var(--rose-light);border-radius:50px;font-size:.72rem;letter-spacing:.25em;text-transform:uppercase;color:var(--rose-dark);margin-bottom:2rem;}
+.intro-title{font-family:'Cormorant Garamond',serif;font-size:clamp(2.4rem,6vw,4rem);font-weight:300;line-height:1.1;color:var(--text-dark);margin-bottom:.5rem;}
+.intro-title em{color:var(--rose);font-style:italic;}
+.intro-subtitle{font-size:.95rem;color:var(--text-light);letter-spacing:.05em;margin-bottom:2.5rem;}
+.intro-card{background:var(--rose-pale);border-radius:1.5rem;padding:2rem 2.5rem;margin:2rem 0;border:1px solid var(--rose-light);text-align:left;}
+.intro-card h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:600;color:var(--rose-dark);margin-bottom:1rem;}
+.intro-steps{list-style:none;}
+.intro-steps li{display:flex;gap:1rem;align-items:flex-start;padding:.6rem 0;font-size:.9rem;color:var(--text-mid);border-bottom:1px solid var(--rose-light);}
+.intro-steps li:last-child{border-bottom:none;}
+.step-num{width:24px;height:24px;border-radius:50%;background:var(--rose);color:white;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:500;flex-shrink:0;margin-top:1px;}
+.intro-note{font-size:.82rem;color:var(--text-light);font-style:italic;margin:1.5rem 0;}
+
+/* CADASTRO */
+#screen-register{background:var(--white);align-items:center;justify-content:center;padding:3rem 2rem;}
+.register-wrap{max-width:520px;width:100%;}
+.register-title{font-family:'Cormorant Garamond',serif;font-size:2.4rem;font-weight:300;text-align:center;color:var(--text-dark);margin-bottom:.4rem;}
+.register-sub{text-align:center;color:var(--text-light);font-size:.9rem;margin-bottom:2.5rem;}
+.field{margin-bottom:1.4rem;}
+.field label{display:block;font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-mid);margin-bottom:.45rem;}
+.field input{width:100%;padding:.85rem 1.2rem;border:1.5px solid var(--beige-dark);border-radius:.7rem;background:var(--rose-pale);color:var(--text-dark);font-family:'Jost',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s,background .2s;}
+.field input:focus{border-color:var(--rose);background:white;}
+.field input::placeholder{color:var(--text-light);}
+.field .err{display:none;font-size:.75rem;color:#c0392b;margin-top:.3rem;}
+.field.has-error input{border-color:#c0392b;}
+.field.has-error .err{display:block;}
+.privacy-note{font-size:.78rem;color:var(--text-light);font-style:italic;text-align:center;margin:1.2rem 0 1.8rem;display:flex;align-items:center;justify-content:center;gap:.4rem;}
+
+/* SPINNER */
+.spinner-wrap{display:none;flex-direction:column;align-items:center;gap:1rem;padding:1.5rem 0;}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--beige-dark);border-top-color:var(--rose);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* BOTÕES */
+.btn-primary{display:inline-block;padding:1rem 3rem;background:var(--rose-dark);color:white;border:none;border-radius:50px;font-family:'Jost',sans-serif;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .3s ease;box-shadow:0 4px 20px var(--shadow);}
+.btn-primary:hover{background:var(--rose);transform:translateY(-2px);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.btn-back{background:none;border:1px solid var(--beige-dark);border-radius:50px;padding:.65rem 1.5rem;font-family:'Jost',sans-serif;font-size:.82rem;color:var(--text-mid);cursor:pointer;letter-spacing:.05em;transition:all .2s;}
+.btn-back:hover{border-color:var(--rose-light);color:var(--rose);}
+
+/* PERGUNTAS */
+.question-screen{background:var(--beige);align-items:center;justify-content:center;padding:4rem 2rem 3rem;}
+.question-content{max-width:700px;width:100%;}
+.q-counter{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--rose);text-align:center;margin-bottom:.5rem;}
+.q-text{font-family:'Cormorant Garamond',serif;font-size:clamp(1.6rem,4vw,2.4rem);font-weight:300;text-align:center;line-height:1.35;color:var(--text-dark);margin:1rem 0 3rem;}
+.options-grid{display:flex;flex-direction:column;gap:.9rem;}
+.option-btn{display:flex;align-items:center;gap:1.2rem;padding:1rem 1.4rem;background:white;border:1.5px solid var(--beige-dark);border-radius:1rem;cursor:pointer;transition:all .25s ease;text-align:left;}
+.option-btn:hover{border-color:var(--rose);background:var(--rose-pale);transform:translateX(6px);}
+.option-btn.selected{border-color:var(--rose-dark);background:var(--rose-pale);box-shadow:0 0 0 3px var(--rose-light);}
+.option-circle{width:36px;height:36px;border-radius:50%;background:var(--beige);border:1.5px solid var(--beige-dark);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:500;color:var(--text-mid);flex-shrink:0;transition:all .25s;}
+.option-btn.selected .option-circle{background:var(--rose-dark);border-color:var(--rose-dark);color:white;}
+.option-label{font-size:.95rem;color:var(--text-dark);}
+.option-value{margin-left:auto;font-size:.78rem;color:var(--text-light);}
+.q-nav{display:flex;justify-content:space-between;align-items:center;margin-top:2.5rem;}
+.btn-next{background:var(--rose-dark);color:white;border:none;border-radius:50px;padding:.75rem 2rem;font-family:'Jost',sans-serif;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .3s ease;opacity:.4;pointer-events:none;}
+.btn-next.ready{opacity:1;pointer-events:auto;}
+.btn-next.ready:hover{background:var(--rose);transform:translateY(-1px);}
+
+/* RESULTADO */
+#screen-result{background:var(--white);align-items:center;padding:3rem 2rem;}
+.result-content{max-width:760px;width:100%;margin:0 auto;}
+.result-header{text-align:center;margin-bottom:2.5rem;}
+.result-name{font-size:.8rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-light);margin-bottom:.3rem;}
+.result-title{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--text-dark);}
+.result-title em{color:var(--rose);font-style:italic;}
+.gauge-wrap{text-align:center;margin:2rem 0;}
+.gauge-svg{max-width:320px;}
+.gauge-tier{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:400;color:var(--rose-dark);margin-top:.5rem;}
+.diag-card{background:var(--rose-pale);border:1px solid var(--rose-light);border-radius:1.5rem;padding:2rem 2.5rem;margin:2rem 0;}
+.diag-card h3{font-family:'Cormorant Garamond',serif;font-size:1.2rem;color:var(--rose-dark);margin-bottom:1rem;}
+.diag-text{font-size:.95rem;color:var(--text-mid);line-height:1.8;}
+.cta-card{background:var(--text-dark);border-radius:1.5rem;padding:2.5rem;margin:2rem 0;text-align:center;}
+.cta-card h3{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--gold-light);margin-bottom:1rem;}
+.cta-card p{font-size:.9rem;color:var(--beige-dark);line-height:1.7;margin-bottom:1.5rem;}
+.btn-cta{display:inline-block;padding:1rem 2.5rem;background:var(--rose);color:white;border:none;border-radius:50px;font-family:'Jost',sans-serif;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .3s;}
+.btn-cta:hover{background:var(--gold);}
+.answers-section{margin:2rem 0;}
+.answers-section h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--text-dark);margin-bottom:1.5rem;padding-bottom:.5rem;border-bottom:1px solid var(--beige-dark);}
+.answer-item{display:flex;gap:1rem;align-items:flex-start;padding:1rem 0;border-bottom:1px solid var(--beige);}
+.answer-num{min-width:28px;height:28px;border-radius:50%;background:var(--rose-pale);border:1px solid var(--rose-light);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:500;color:var(--rose-dark);flex-shrink:0;}
+.answer-q{font-size:.88rem;color:var(--text-mid);flex:1;line-height:1.5;}
+.answer-r{font-size:.82rem;font-weight:500;color:var(--rose-dark);background:var(--rose-pale);padding:.25rem .8rem;border-radius:50px;white-space:nowrap;flex-shrink:0;border:1px solid var(--rose-light);}
+.btn-pdf{display:flex;align-items:center;gap:.5rem;margin:2rem auto 0;padding:1rem 2.5rem;background:white;border:1.5px solid var(--rose-dark);border-radius:50px;color:var(--rose-dark);font-family:'Jost',sans-serif;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:all .3s;width:fit-content;}
+.btn-pdf:hover{background:var(--rose-dark);color:white;}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.screen.active>*{animation:fadeIn .5s ease forwards;}
+</style>
+</head>
+<body>
+
+<div class="prog-wrap"><div class="prog-fill" id="progressBar" style="width:0%"></div></div>
+
+<!-- TELA 1 — ABERTURA -->
+<div id="screen-intro" class="screen active">
+  <div class="intro-content">
+    <div class="intro-badge">Diagnóstico de Propósito</div>
+    <h1 class="intro-title">Onde você está<br>no seu <em>propósito</em>?</h1>
+    <p class="intro-subtitle">Uma jornada de autoconhecimento em 15 perguntas</p>
+    <div class="divider"><div class="divider-line"></div><div class="divider-dot"></div><div class="divider-line"></div></div>
+    <div class="intro-card">
+      <h3>Como funciona</h3>
+      <ul class="intro-steps">
+        <li><div class="step-num">1</div><span>Preencha um <strong>cadastro rápido</strong> — nome, WhatsApp e e-mail para personalizar seu diagnóstico.</span></li>
+        <li><div class="step-num">2</div><span>Responda as <strong>15 perguntas</strong> com honestidade. Não há certo ou errado — apenas o que é verdadeiro para você hoje.</span></li>
+        <li><div class="step-num">3</div><span>Cada pergunta tem <strong>5 opções</strong>: Nunca, Raramente, Às vezes, Frequentemente e Sempre.</span></li>
+        <li><div class="step-num">4</div><span>Ao final, receba seu <strong>diagnóstico personalizado em PDF</strong> com gráfico, análise e próximos passos.</span></li>
+      </ul>
+    </div>
+    <p class="intro-note">⏱ Tempo estimado: 5 a 8 minutos. Separe um momento só seu.</p>
+    <button class="btn-primary" onclick="goTo('screen-register')">Começar meu diagnóstico</button>
+  </div>
+</div>
+
+<!-- TELA 2 — CADASTRO NATIVO -->
+<div id="screen-register" class="screen">
+  <div class="register-wrap">
+    <div class="ornament">Diagnóstico de Propósito</div>
+    <div class="divider"><div class="divider-line"></div><div class="divider-dot"></div><div class="divider-line"></div></div>
+    <h2 class="register-title">Antes de começar,<br>me conta quem você é</h2>
+    <p class="register-sub">Seus dados são usados apenas para personalizar seu diagnóstico</p>
+
+    <div class="field" id="field-nome">
+      <label>Nome completo</label>
+      <input type="text" id="reg-nome" placeholder="Como prefere ser chamado(a)?" autocomplete="name"/>
+      <span class="err">Por favor, informe seu nome.</span>
+    </div>
+    <div class="field" id="field-wpp">
+      <label>WhatsApp com DDD</label>
+      <input type="tel" id="reg-whatsapp" placeholder="(00) 00000-0000" autocomplete="tel" oninput="mascaraWpp(this)"/>
+      <span class="err">Informe um WhatsApp válido com DDD.</span>
+    </div>
+    <div class="field" id="field-email">
+      <label>E-mail</label>
+      <input type="email" id="reg-email" placeholder="seu@email.com" autocomplete="email"/>
+      <span class="err">Informe um e-mail válido.</span>
+    </div>
+
+    <div class="privacy-note">🔒 Seus dados são confidenciais e não serão compartilhados.</div>
+
+    <div class="spinner-wrap" id="spinner">
+      <div class="spinner"></div>
+      <span style="font-size:.85rem;color:var(--text-light)">Salvando seus dados…</span>
+    </div>
+
+    <button class="btn-primary" style="width:100%" id="btn-cadastro" onclick="enviarCadastro()">Continuar para as perguntas →</button>
+    <br><br>
+    <button class="btn-back" style="width:100%;margin-top:.5rem" onclick="goTo('screen-intro')">← Voltar</button>
+  </div>
+</div>
+
+<!-- PERGUNTAS (geradas via JS) -->
+<div id="questions-container"></div>
+
+<!-- TELA RESULTADO -->
+<div id="screen-result" class="screen">
+  <div class="result-content">
+    <div class="result-header">
+      <div class="result-name" id="result-name-label"></div>
+      <h2 class="result-title">Seu <em>Diagnóstico</em> de Propósito</h2>
+    </div>
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 320 200">
+        <path d="M 30 170 A 130 130 0 0 1 290 170" fill="none" stroke="#e8ddd4" stroke-width="18" stroke-linecap="round"/>
+        <path id="gaugeArc" d="M 30 170 A 130 130 0 0 1 290 170" fill="none" stroke="#c9967a" stroke-width="18" stroke-linecap="round" stroke-dasharray="408" stroke-dashoffset="408"/>
+        <text x="22"  y="186" font-family="Jost,sans-serif" font-size="10" fill="#9e8276" text-anchor="middle">0%</text>
+        <text x="160" y="42"  font-family="Jost,sans-serif" font-size="10" fill="#9e8276" text-anchor="middle">50%</text>
+        <text x="298" y="186" font-family="Jost,sans-serif" font-size="10" fill="#9e8276" text-anchor="middle">100%</text>
+        <text id="gaugeText" x="160" y="155" font-family="Cormorant Garamond,serif" font-size="48" fill="#2c2420" text-anchor="middle" font-weight="300">0%</text>
+        <text x="160" y="178" font-family="Jost,sans-serif" font-size="10" fill="#9e8276" text-anchor="middle" letter-spacing="3">ALINHAMENTO</text>
+      </svg>
+      <div class="gauge-tier" id="gaugeTier"></div>
+    </div>
+    <div class="diag-card"><h3>Seu diagnóstico</h3><p class="diag-text" id="diagText"></p></div>
+    <div class="cta-card">
+      <h3 id="ctaTitle"></h3>
+      <p id="ctaText"></p>
+      <button class="btn-cta" id="ctaBtn"></button>
+    </div>
+    <div class="answers-section">
+      <h3>Suas respostas</h3>
+      <div id="answers-list"></div>
+    </div>
+    <button class="btn-pdf" onclick="generatePDF()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+      Baixar diagnóstico em PDF
+    </button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// ⚙️  ÚNICA CONFIGURAÇÃO NECESSÁRIA
+// Cole aqui a URL gerada pelo Google Apps Script
+// ══════════════════════════════════════════════
+const SHEET_URL = 'https://script.google.com/macros/s/AKfycbz8Gr1MmEGvokOf6ZBBQ5CRVhmf75m4ZBkG3uYLoh86U9ke5VSsBcK2CkDC6Joi8htMAg/exec';
+
+// ══════════════════════════════════════════════
+// PERGUNTAS
+// ══════════════════════════════════════════════
+const questions = [
+  "Eu sei claramente quais são meus valores mais importantes na vida.",
+  "Tenho consciência do que me faz sentir vivo(a) e com energia.",
+  "As minhas escolhas diárias estão alinhadas com o que acredito.",
+  "Sinto que o meu trabalho ou ocupação tem sentido e significado.",
+  "Consigo identificar meus talentos naturais e os coloco em prática.",
+  "Tenho clareza sobre aonde quero chegar nos próximos anos.",
+  "Me sinto conectado(a) com algo maior do que eu mesmo(a).",
+  "Dedico tempo ao autoconhecimento — meditação, terapia, leituras ou reflexão.",
+  "Consigo tomar decisões importantes sem me perder nas opiniões dos outros.",
+  "Sinto que estou vivendo de acordo com quem realmente sou.",
+  "Tenho objetivos que me motivam a sair da cama cada manhã.",
+  "Me permito ser vulnerável e autêntico(a) nos meus relacionamentos.",
+  "Reconheço quando algo não está alinhado com meu propósito e faço ajustes.",
+  "Sinto gratidão genuína pela vida que estou construindo.",
+  "Acredito que estou no caminho certo para realizar o meu potencial."
+];
+
+const options = [
+  {label:"Nunca",value:0},{label:"Raramente",value:1},{label:"Às vezes",value:2},
+  {label:"Frequentemente",value:3},{label:"Sempre",value:4}
+];
+
+const tiers = [
+  {
+    name:"Despertar Interior",
+    diag:"Você está em um momento de transição profunda. Algo dentro de você sussurra que existe mais a ser descoberto, mas as névoas do cotidiano ainda tornam difícil ouvir essa voz. Não se trata de fracasso — trata-se de um chamado. Muitas pessoas jamais chegam a este ponto de honestidade consigo mesmas, e você chegou. Este diagnóstico é o primeiro passo de uma jornada que pode transformar completamente a forma como você vive.",
+    ctaTitle:"O despertar começa com uma escolha",
+    ctaText:"Você está pronto(a) para iniciar essa jornada? Uma conversa pode ser o ponto de virada que você precisa. Vamos entender juntos onde você está e traçar o caminho para onde quer chegar.",
+    cta:"Quero minha sessão de descoberta"
+  },
+  {
+    name:"Em Movimento",
+    diag:"Você já está em movimento — e isso é poderoso. Existem chamas dentro de você que já brilham com força, mas algumas áreas ainda pedem atenção e consciência. Você sente, em alguns momentos, que poderia estar vivendo de forma mais plena e alinhada. Essa percepção já é um presente. Com os recursos certos e o apoio adequado, você pode transformar esses lampejos de propósito em uma direção consistente e sustentável.",
+    ctaTitle:"Chegou a hora de ganhar velocidade",
+    ctaText:"Você já tem o impulso — agora precisa de direção. Vamos trabalhar juntos para identificar o que está travando o seu avanço e criar um plano claro para viver com mais propósito e consistência.",
+    cta:"Quero acelerar minha jornada"
+  },
+  {
+    name:"Realinhamento",
+    diag:"Você está em um bom caminho, com clareza em várias áreas da sua vida. Seus valores e escolhas estão, em grande parte, alinhados. No entanto, ainda existem pontos de atrito — momentos em que a vida que você vive e a vida que você quer parecem não coincidir completamente. Um pequeno ajuste de rota pode levar a um resultado radicalmente diferente.",
+    ctaTitle:"O ajuste fino que muda tudo",
+    ctaText:"Você está perto. Com os ajustes certos nas áreas estratégicas, você pode dar o salto que vai alinhar completamente quem você é com como você vive. Vamos identificar juntos esses pontos de alavancagem.",
+    cta:"Quero fazer meu realinhamento"
+  },
+  {
+    name:"Rumo ao Propósito",
+    diag:"Parabéns — você está vivendo em alto nível de alinhamento com o seu propósito. Suas escolhas, valores e ações formam uma vida coerente e significativa. Você sente, na maior parte do tempo, que está no lugar certo fazendo o que deve fazer. A jornada do propósito não tem destino final — ela se aprofunda e se expande continuamente. Você está pronto(a) para o próximo nível.",
+    ctaTitle:"Quem chegou aqui vai mais longe ainda",
+    ctaText:"Você atingiu um nível de alinhamento que poucos alcançam. Agora é hora de expandir seu impacto, sua liderança e seu legado. Vamos conversar sobre como transformar o seu propósito em algo ainda maior.",
+    cta:"Quero expandir meu propósito"
+  }
+];
+
+// ══════════════════════════════════════════════
+// ESTADO
+// ══════════════════════════════════════════════
+let currentScreen = 'screen-intro';
+let answers = new Array(15).fill(null);
+let userData = {nome:'',whatsapp:'',email:''};
+const MAX_SCORE = 60;
+
+// ══════════════════════════════════════════════
+// NAVEGAÇÃO
+// ══════════════════════════════════════════════
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  currentScreen = id;
+  updateProgress();
+  window.scrollTo(0,0);
+}
+function updateProgress() {
+  const screens = ['screen-intro','screen-register',
+    ...Array.from({length:15},(_,i)=>`q-screen-${i}`),'screen-result'];
+  const idx = screens.indexOf(currentScreen);
+  const pct = idx<0?0:Math.round((idx/(screens.length-1))*100);
+  document.getElementById('progressBar').style.width = pct+'%';
+}
+
+// ══════════════════════════════════════════════
+// MÁSCARA E VALIDAÇÃO
+// ══════════════════════════════════════════════
+function mascaraWpp(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>6)      v='('+v.slice(0,2)+') '+v.slice(2,7)+'-'+v.slice(7);
+  else if(v.length>2) v='('+v.slice(0,2)+') '+v.slice(2);
+  else if(v.length>0) v='('+v;
+  el.value=v;
+}
+function setErr(id,has){document.getElementById(id).classList.toggle('has-error',has);}
+function validar() {
+  const nome  = document.getElementById('reg-nome').value.trim();
+  const wpp   = document.getElementById('reg-whatsapp').value.replace(/\D/g,'');
+  const email = document.getElementById('reg-email').value.trim();
+  const rx    = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  setErr('field-nome', !nome);
+  setErr('field-wpp',  wpp.length<10);
+  setErr('field-email',!rx.test(email));
+  return nome && wpp.length>=10 && rx.test(email);
+}
+
+// ══════════════════════════════════════════════
+// ENVIO PARA GOOGLE SHEETS
+// ══════════════════════════════════════════════
+async function enviarCadastro() {
+  if(!validar()) return;
+  userData.nome     = document.getElementById('reg-nome').value.trim();
+  userData.whatsapp = document.getElementById('reg-whatsapp').value.trim();
+  userData.email    = document.getElementById('reg-email').value.trim();
+
+  document.getElementById('btn-cadastro').disabled = true;
+  document.getElementById('spinner').style.display = 'flex';
+
+  try {
+    await fetch(SHEET_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        tipo:'cadastro',
+        nome:userData.nome,
+        whatsapp:userData.whatsapp,
+        email:userData.email,
+        data:new Date().toLocaleString('pt-BR')
+      })
+    });
+  } catch(e){console.warn('Erro ao salvar cadastro:',e);}
+
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('btn-cadastro').disabled = false;
+  goTo('q-screen-0');
+}
+
+// ══════════════════════════════════════════════
+// PERGUNTAS
+// ══════════════════════════════════════════════
+function buildQuestions() {
+  const c = document.getElementById('questions-container');
+  questions.forEach((q,qi)=>{
+    const div = document.createElement('div');
+    div.id=`q-screen-${qi}`;
+    div.className='screen question-screen';
+    div.innerHTML=`
+      <div class="question-content">
+        <p class="q-counter">Pergunta ${qi+1} de ${questions.length}</p>
+        <div class="divider"><div class="divider-line"></div><div class="divider-dot"></div><div class="divider-line"></div></div>
+        <h2 class="q-text">${q}</h2>
+        <div class="options-grid">
+          ${options.map((o,oi)=>`
+            <button class="option-btn" data-q="${qi}" data-val="${o.value}" onclick="selectOption(${qi},${oi})">
+              <div class="option-circle">${oi+1}</div>
+              <span class="option-label">${o.label}</span>
+              <span class="option-value">${o.value} pt${o.value===1?'':'s'}</span>
+            </button>`).join('')}
+        </div>
+        <div class="q-nav">
+          <button class="btn-back" onclick="prevQuestion(${qi})">← Anterior</button>
+          <button class="btn-next" id="btn-next-${qi}" onclick="nextQuestion(${qi})">
+            ${qi<14?'Próxima →':'Ver diagnóstico →'}
+          </button>
+        </div>
+      </div>`;
+    c.appendChild(div);
+  });
+}
+function selectOption(qi,oi){
+  answers[qi]=options[oi].value;
+  document.querySelectorAll(`[data-q="${qi}"]`).forEach(b=>b.classList.remove('selected'));
+  document.querySelectorAll(`[data-q="${qi}"][data-val="${options[oi].value}"]`).forEach(b=>b.classList.add('selected'));
+  document.getElementById(`btn-next-${qi}`).classList.add('ready');
+}
+function nextQuestion(qi){
+  if(answers[qi]===null)return;
+  qi<14?goTo(`q-screen-${qi+1}`):showResult();
+}
+function prevQuestion(qi){
+  goTo(qi===0?'screen-register':`q-screen-${qi-1}`);
+}
+
+// ══════════════════════════════════════════════
+// RESULTADO
+// ══════════════════════════════════════════════
+async function showResult(){
+  const total=answers.reduce((s,v)=>s+(v||0),0);
+  const pct=Math.round((total/MAX_SCORE)*100);
+  const tier=pct>=82?tiers[3]:pct>=62?tiers[2]:pct>=42?tiers[1]:tiers[0];
+
+  document.getElementById('result-name-label').textContent=userData.nome;
+  document.getElementById('gaugeTier').textContent=tier.name;
+  document.getElementById('diagText').textContent=tier.diag;
+  document.getElementById('ctaTitle').textContent=tier.ctaTitle;
+  document.getElementById('ctaText').textContent=tier.ctaText;
+  document.getElementById('ctaBtn').textContent=tier.cta;
+
+  document.getElementById('answers-list').innerHTML=questions.map((q,i)=>`
+    <div class="answer-item">
+      <div class="answer-num">${i+1}</div>
+      <div class="answer-q">${q}</div>
+      <div class="answer-r">${options.find(o=>o.value===answers[i])?.label||'-'}</div>
+    </div>`).join('');
+
+  goTo('screen-result');
+  setTimeout(()=>animateGauge(pct),300);
+
+  // Salva resultado completo no Sheets
+  try {
+    await fetch(SHEET_URL,{
+      method:'POST',mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        tipo:'resultado',
+        nome:userData.nome,
+        whatsapp:userData.whatsapp,
+        email:userData.email,
+        pontuacao:total,
+        percentual:pct+'%',
+        nivel:tier.name,
+        respostas:questions.map((q,i)=>({
+          pergunta:q,
+          resposta:options.find(o=>o.value===answers[i])?.label||'-',
+          valor:answers[i]
+        })),
+        data:new Date().toLocaleString('pt-BR')
+      })
+    });
+  }catch(e){console.warn('Erro ao salvar resultado:',e);}
+}
+
+function animateGauge(pct){
+  const arc=document.getElementById('gaugeArc');
+  const txt=document.getElementById('gaugeText');
+  arc.style.stroke=pct>=82?'#b8965a':'#c9967a';
+  arc.style.transition='stroke-dashoffset 1.4s cubic-bezier(0.4,0,0.2,1)';
+  arc.style.strokeDashoffset=408-(408*(pct/100));
+  let c=0;
+  const step=()=>{txt.textContent=Math.min(++c,pct)+'%';if(c<pct)requestAnimationFrame(step);};
+  requestAnimationFrame(step);
+}
+
+// ══════════════════════════════════════════════
+// PDF
+// ══════════════════════════════════════════════
+function generatePDF(){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const pw=210,ph=297,m=20,uw=170;
+  const rR=201,rG=150,rB=122,dR=44,dG=36,dB=32,bR=240,bG=232,bB=222,gR=184,gG=150,gB=90;
+  const total=answers.reduce((s,v)=>s+(v||0),0);
+  const pct=Math.round((total/MAX_SCORE)*100);
+  const tier=pct>=82?tiers[3]:pct>=62?tiers[2]:pct>=42?tiers[1]:tiers[0];
+
+  // PÁG 1
+  doc.setFillColor(bR,bG,bB);doc.rect(0,0,pw,ph,'F');
+  doc.setFillColor(rR,rG,rB);doc.rect(0,0,pw,2,'F');
+  doc.setDrawColor(rR,rG,rB);doc.setFillColor(255,255,255);
+  doc.roundedRect(m,18,uw,10,5,5,'FD');
+  doc.setTextColor(rR,rG,rB);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('DIAGNÓSTICO DE PROPÓSITO DE VIDA',pw/2,24.5,{align:'center'});
+  doc.setTextColor(dR,dG,dB);doc.setFontSize(28);doc.setFont('times','italic');
+  doc.text('Seu Diagnóstico de',pw/2,52,{align:'center'});
+  doc.setFont('times','bolditalic');doc.setTextColor(rR,rG,rB);
+  doc.text('Propósito',pw/2,64,{align:'center'});
+  doc.setDrawColor(rR,rG,rB);doc.setLineWidth(.5);
+  doc.line(m+20,70,pw-m-20,70);
+  doc.setTextColor(dR,dG,dB);doc.setFontSize(10);doc.setFont('helvetica','normal');
+  doc.text('Preparado para:',pw/2,80,{align:'center'});
+  doc.setFontSize(16);doc.setFont('times','bold');
+  doc.text(userData.nome,pw/2,89,{align:'center'});
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(rR,rG,rB);
+  doc.text(userData.email+'  |  '+userData.whatsapp,pw/2,96,{align:'center'});
+
+  // Gauge PDF
+  const cx=pw/2,cy=145,r=42;
+  let px=null,py=null;
+  for(let a=180;a>=0;a-=3){
+    const rad=(a*Math.PI)/180,x=cx+r*Math.cos(rad),y=cy-r*Math.sin(rad);
+    if(px!==null){doc.setDrawColor(bR-15,bG-15,bB-15);doc.setLineWidth(5);doc.line(px,py,x,y);}
+    px=x;py=y;
+  }
+  px=null;py=null;
+  const endA=180-(pct/100)*180;
+  for(let a=180;a>=endA;a-=2){
+    const rad=(a*Math.PI)/180,x=cx+r*Math.cos(rad),y=cy-r*Math.sin(rad);
+    if(px!==null){doc.setDrawColor(rR,rG,rB);doc.setLineWidth(5);doc.line(px,py,x,y);}
+    px=x;py=y;
+  }
+  doc.setTextColor(dR,dG,dB);doc.setFontSize(32);doc.setFont('times','normal');
+  doc.text(pct+'%',cx,cy+5,{align:'center'});
+  doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(rR-20,rG-20,rB-20);
+  doc.text('ALINHAMENTO',cx,cy+12,{align:'center'});
+  doc.setTextColor(rR,rG,rB);doc.setFontSize(14);doc.setFont('times','italic');
+  doc.text(tier.name,cx,cy+24,{align:'center'});
+
+  // Diagnóstico box
+  doc.setFillColor(255,248,244);doc.roundedRect(m,172,uw,48,4,4,'F');
+  doc.setTextColor(rR-20,rG-20,rB-20);doc.setFontSize(8);doc.setFont('helvetica','bold');
+  doc.text('SEU DIAGNÓSTICO',m+6,180);
+  doc.setTextColor(dR,dG,dB);doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text(doc.splitTextToSize(tier.diag,uw-12).slice(0,7),m+6,188);
+
+  // CTA box
+  doc.setFillColor(dR,dG,dB);doc.roundedRect(m,228,uw,38,4,4,'F');
+  doc.setTextColor(gR,gG,gB);doc.setFontSize(10);doc.setFont('times','bold');
+  doc.text(tier.ctaTitle,pw/2,238,{align:'center'});
+  doc.setTextColor(bR,bG,bB);doc.setFontSize(8.5);doc.setFont('helvetica','normal');
+  doc.text(doc.splitTextToSize(tier.ctaText,uw-16).slice(0,3),pw/2,246,{align:'center'});
+  doc.setFillColor(rR,rG,rB);doc.roundedRect(pw/2-30,256,60,8,4,4,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(7.5);
+  doc.text(tier.cta,pw/2,261,{align:'center'});
+  doc.setTextColor(rR,rG,rB);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Diagnóstico de Propósito de Vida  •  1/2',pw/2,ph-8,{align:'center'});
+
+  // PÁG 2 — RESPOSTAS
+  doc.addPage();
+  doc.setFillColor(bR,bG,bB);doc.rect(0,0,pw,ph,'F');
+  doc.setFillColor(rR,rG,rB);doc.rect(0,0,pw,2,'F');
+  doc.setTextColor(rR,rG,rB);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('SUAS RESPOSTAS',pw/2,18,{align:'center'});
+  doc.setTextColor(dR,dG,dB);doc.setFontSize(16);doc.setFont('times','italic');
+  doc.text('Detalhamento do Diagnóstico',pw/2,28,{align:'center'});
+  doc.setDrawColor(rR,rG,rB);doc.setLineWidth(.5);
+  doc.line(m+20,32,pw-m-20,32);
+
+  let yy=40;
+  questions.forEach((q,i)=>{
+    if(yy>270){doc.addPage();doc.setFillColor(bR,bG,bB);doc.rect(0,0,pw,ph,'F');yy=20;}
+    if(i%2===0){doc.setFillColor(255,253,250);doc.rect(m,yy-3,uw,14,'F');}
+    doc.setFillColor(rR,rG,rB);doc.circle(m+4,yy+4,3.5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text(String(i+1),m+4,yy+6,{align:'center'});
+    doc.setTextColor(dR,dG,dB);doc.setFontSize(8.5);doc.setFont('helvetica','normal');
+    doc.text(doc.splitTextToSize(q,uw-36)[0],m+12,yy+5.5);
+    const resp=options.find(o=>o.value===answers[i])?.label||'-';
+    const bx=pw-m-30;
+    doc.setFillColor(rR+30,rG+20,rB+20);doc.roundedRect(bx,yy+.5,30,7.5,2,2,'F');
+    doc.setTextColor(rR-30,rG-30,rB-30);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text(resp+' ('+answers[i]+')',bx+15,yy+5.5,{align:'center'});
+    yy+=15;
+  });
+
+  yy+=5;
+  doc.setFillColor(rR,rG,rB);doc.roundedRect(m,yy,uw/2-5,22,4,4,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+  doc.text('Pontuação total',m+uw/4-2.5,yy+8,{align:'center'});
+  doc.setFontSize(16);doc.setFont('times','bold');
+  doc.text(total+' / '+MAX_SCORE,m+uw/4-2.5,yy+17,{align:'center'});
+  doc.setFillColor(dR,dG,dB);doc.roundedRect(m+uw/2+5,yy,uw/2-5,22,4,4,'F');
+  doc.setTextColor(gR+20,gG+20,gB+20);doc.setFontSize(9);doc.setFont('helvetica','bold');
+  doc.text('Alinhamento',m+uw*3/4+2.5,yy+8,{align:'center'});
+  doc.setFontSize(12);doc.setFont('times','bold');
+  doc.text(pct+'% — '+tier.name,m+uw*3/4+2.5,yy+17,{align:'center'});
+
+  doc.setTextColor(rR,rG,rB);doc.setFontSize(7);doc.setFont('helvetica','normal');
+  doc.text('Diagnóstico de Propósito de Vida  •  2/2',pw/2,ph-8,{align:'center'});
+
+  doc.save(`diagnostico-${userData.nome.split(' ')[0].toLowerCase()}.pdf`);
+}
+
+// INIT
+buildQuestions();
+updateProgress();
+</script>
+</body>
+</html>
